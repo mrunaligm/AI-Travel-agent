@@ -22,14 +22,6 @@ with st.sidebar:
     st.header("Settings")
     uploaded_file = st.file_uploader("Upload your Travel Guide (PDF)", type="pdf")
     process_btn = st.button("Process Document")
-
-# 3. RAG Logic
-def process_pdf(file):
-    with open("temp.pdf", "wb") as f:
-        f.write(file.getbuffer())
-    
-    loader = PyPDFLoader("temp.pdf")
-    data = loader.load()
     
     # Larger chunks to avoid 429 rate limit errors
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=200)
