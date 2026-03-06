@@ -1,4 +1,12 @@
 __pycache__/
+*.py[cod]
+*$py.class
+
 chroma_db/
+.db
+*.sqlite3
+
 temp.pdf
 .env
+.streamlit/secrets.toml
+secrets.py
