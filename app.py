@@ -64,3 +64,22 @@ if prompt := st.chat_input("Ask about your trip!"):
             st.session_state.messages.append({"role": "assistant", "content": response})
     else:
         st.warning("Please upload and process a PDF first.")
+
+#week 3-4
+import streamlit as st
+from langchain.agents import AgentExecutor, create_openai_functions_agent
+from tools.search import travel_search
+from tools.calculator import travel_calculator
+
+tools = [travel_search, travel_calculator]
+
+if "agent_executor" not in st,session_state:
+    agent = craete_openai_functions_agent(llm, tools, prompt)
+    st.session_state.agent_executor = AgentExecutor(
+        agent=agent, tools=tools, verbose=True
+    )
+
+user_input = st.chat_input("Ask about hotels or currency conversion...")
+if user_input:
+    response = st.session_state.agent_executor.invoke("input": user_input})
+    st.write(response["output"])
