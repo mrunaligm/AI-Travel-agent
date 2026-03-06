@@ -21,3 +21,6 @@ def process_pdf(file):
     # Clear and recreate vector store
     vector_store = Chroma.from_documents(chunks, embeddings, persist_directory="./chroma_db")
     return vector_store.as_retriever()
+
+    # agent has 3 tools
+    tools = [travel_search, currency_conerter, query_travel_docs]
