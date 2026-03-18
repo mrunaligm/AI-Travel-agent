@@ -83,3 +83,46 @@ user_input = st.chat_input("Ask about hotels or currency conversion...")
 if user_input:
     response = st.session_state.agent_executor.invoke("input": user_input})
     st.write(response["output"])
+
+import streamlit as st
+import os
+from serpapi import GoogleSearch
+from langchain_google_genai import ChatGoogleGenerativeAI
+from database_utils import init_db, save_search, get_history
+
+# 1. Setup API Keys from Streamlit Secrets
+os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+SERPAPI_KEY = st.secrets["SERPAPI_KEY"]
+
+init_db()
+
+st.title("AI Travel Assistant")
+
+# Sidebar for History
+st.sidebar.title("Recent Searches")
+for h in get_history():
+    st.sidebar.write(f"{h[1]} ({h[2][:10]})")
+
+# Main UI
+col1, col2, col3 = st.columns(3)
+with col1: dep = st.text_input("Departure (e.g., DEL)", value="DEL")
+with col2: arr = st.text_input("Arrival (e.g., BOM)", value="BOM")
+with col3: date = st.text_input("Date (YYYY-MM-DD)", value="2026-06-15")
+
+if st.button("Search Flights & Plan Itinerary"):
+    with st.spinner("Searching..."):
+        # API Call
+        params = {"engine": "google_flights", "departure_id": dep, "arrival_id": arr, 
+                  "outbound_date": date, "api_key": SERPAPI_KEY, "gl": "in", "currency": "INR"}
+        search = GoogleSearch(params)
+        results = search.get_dict().get("best_flights", [])
+        
+        # Save to SQLite
+        save_search(f"Flights from {dep} to {arr}", arr, results)
+        
+        # AI Itinerary
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
+        itinerary = llm.invoke(f"Create a 2-day plan for {arr} given these flights: {results[:2]}")
+        
+        st.success(f"Found {len(results)} flights!")
+        st.markdown(itinerary.content)
