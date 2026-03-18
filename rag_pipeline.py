@@ -24,3 +24,47 @@ def process_pdf(file):
 
     # agent has 3 tools
     tools = [travel_search, currency_conerter, query_travel_docs]
+
+
+import sqlite3
+import sys
+
+# Workaround for SQLite version issues on Streamlit Cloud
+try:
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
+
+def init_db():
+    conn = sqlite3.connect('travel_assistant.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS search_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query TEXT,
+            destination TEXT,
+            results TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def save_search(query, destination, results):
+    conn = sqlite3.connect('travel_assistant.db')
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO search_history (query, destination, results) VALUES (?, ?, ?)",
+        (query, destination, str(results))
+    )
+    conn.commit()
+    conn.close()
+
+def get_history():
+    conn = sqlite3.connect('travel_assistant.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT query, destination, timestamp FROM search_history ORDER BY timestamp DESC LIMIT 5")
+    data = cursor.fetchall()
+    conn.close()
+    return data
