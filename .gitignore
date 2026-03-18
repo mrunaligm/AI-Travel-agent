@@ -10,3 +10,32 @@ temp.pdf
 .env
 .streamlit/secrets.toml
 secrets.py
+
+# --- Security / Secrets ---
+# Never upload your API keys!
+.env
+.streamlit/secrets.toml
+
+# --- Database ---
+# Local SQLite database files
+*.db
+*.sqlite3
+
+# --- Python Environment ---
+# Ignore virtual environments and cache
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+.env/
+
+# --- Operating System ---
+# System-specific files
+.DS_Store
+Thumbs.db
+
+# --- Development Tools ---
+# If you are using Jupyter/Colab locally
+.ipynb_checkpoints
