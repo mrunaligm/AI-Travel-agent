@@ -81,7 +81,7 @@ if "agent_executor" not in st,session_state:
 
 user_input = st.chat_input("Ask about hotels or currency conversion...")
 if user_input:
-    response = st.session_state.agent_executor.invoke("input": user_input})
+    response = st.session_state.agent_executor.invoke({"input": user_input})
     st.write(response["output"])
 
 import streamlit as st
