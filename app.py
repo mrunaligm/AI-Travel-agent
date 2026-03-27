@@ -73,7 +73,7 @@ from tools.calculator import travel_calculator
 
 tools = [travel_search, travel_calculator]
 
-if "agent_executor" not in st,session_state:
+if "agent_executor" not in st.session_state:
     agent = craete_openai_functions_agent(llm, tools, prompt)
     st.session_state.agent_executor = AgentExecutor(
         agent=agent, tools=tools, verbose=True
