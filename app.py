@@ -22,7 +22,8 @@ with st.sidebar:
     st.header("Settings")
     uploaded_file = st.file_uploader("Upload your Travel Guide (PDF)", type="pdf")
     process_btn = st.button("Process Document")
-    
+
+def process_pdf(uploaded_file):
     # Larger chunks to avoid 429 rate limit errors
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=200)
     chunks = text_splitter.split_documents(data)
@@ -32,7 +33,7 @@ with st.sidebar:
     
     # Clear and recreate vector store
     vector_store = Chroma.from_documents(chunks, embeddings, persist_directory="./chroma_db")
-return vector_store.as_retriever()
+    return vector_store.as_retriever()
 
 # 4. Chat Interface
 if uploaded_file and process_btn:
