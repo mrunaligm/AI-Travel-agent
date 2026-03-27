@@ -32,7 +32,7 @@ with st.sidebar:
     
     # Clear and recreate vector store
     vector_store = Chroma.from_documents(chunks, embeddings, persist_directory="./chroma_db")
-    return vector_store.as_retriever()
+return vector_store.as_retriever()
 
 # 4. Chat Interface
 if uploaded_file and process_btn:
