@@ -69,7 +69,6 @@ if prompt := st.chat_input("Ask about your trip!"):
 #week 3-4
 import streamlit as st
 from langchain_classic.agents import AgentExecutor, create_openai_functions_agent
-from langchain import hub
 from tools.search import travel_search
 from tools.calculator import travel_calculator
 
