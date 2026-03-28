@@ -14,7 +14,7 @@ except Exception as e:
   print(f"error loading pdf: {e}")
 
   text_splitter=RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=100)
-chunks = text_splitter.split_documents(data)
+  chunks = text_splitter.split_documents(data)
 
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001",task_type="retrieval_document")
 vector_store = Chroma.from_documents(chunks,embeddings)
