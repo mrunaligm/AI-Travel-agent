@@ -1,392 +1,111 @@
-import os, time
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain_classic.chains import RetrievalQA
-
-file_path = "travels_guide.pdf"
-try:
-  loader = PyPDFLoader(file_path='/content/travels_guide.pdf')
-  data = loader.load()
-  print(f"successfully loaded {len(data)} pages.")
-except Exception as e:
-  print(f"error loading pdf: {e}")
-
-  text_splitter=RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=100)
-  chunks = text_splitter.split_documents(data)
-
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001",task_type="retrieval_document")
-vector_store = Chroma.from_documents(chunks,embeddings)
-
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash",temperature=0)
-
-rag_chain = RetrievalQA.from_chain_type(llm=llm,chain_type="stuff",retriever=vector_store.as_retriever())
-
-from langchain_community.retrievers import WikipediaRetriever
-
-retriever = WikipediaRetriever(top_k_results=2, lang="en")
-
-query = "the geographical history of attractive tourist places?"
-
-docs = retriever.invoke(query)
-
-for i, doc in enumerate(docs):
-    print(f"\n--- Result {i+1} ---")
-    print(f"Content:\n{doc.page_content}...")
-
-query = "suggest a 3-day itinerary based on attractions in this guide."
-response = rag_chain.invoke(query)
-print(f"AI Concierge: {response['result']}")
-
-response = rag_chain.invoke("what are the top attractions?")
-print(response["result"])
-
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001",task_type="retrieval_document")
-vector_store = Chroma.from_documents(chunks,embeddings,persist_directory="./db")
-
-query="what does this document say about travel safety?"
-print(rag_chain.invoke(query)["result"])
-
-import os
-from google.colab import userdata
-
-os.environ["OPENAI_API_KEY"] = userdata.get('OPENAI_API_KEY')
-
-from langchain_community.tools import DuckDuckGoSearchRun
-from langchain.tools import tool
-
-search = DuckDuckGoSearchRun()
-
-@tool
-def currency_converter(amount: float, from_currency: str, to_currency: str) -> str:
-  """converts travel expenses between different currencies."""
-  rates = {"USD": 1.0, "EUR": 0.92, "INR": 83.0}
-  if from_currency in rates and to_currency in rates:
-    converted = amount * (rates[to_currency] / rates[from_currency])
-    return f"{amount} {from_currency} is approximately {converted:.2f} {to_currency}"
-  return "currency not supported."
-
-tools = [search, currency_converter]
-
-from langchain_openai import ChatOpenAI
-from langchain_classic.agents import AgentExecutor, create_openai_functions_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "you are specialized AI travel concierge"),
-    MessagesPlaceholder(variable_name="chat_history", optional=True),
-    ("human", "{input}"),
-    MessagesPlaceholder(variable_name="agent_scratchpad"),
-])
-
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-tools = [search, currency_converter]
-
-agent = create_openai_functions_agent(llm, tools, prompt)
-
-agent_executor = AgentExecutor(
-    agent=agent,
-    tools=tools,
-    verbose=True,
-    handle_parsing_errors=True
-)
-
-def safe_tool_call(query):
-  try:
-    return agent_executor.invoke({"input": query})
-  except Exception as e:
-      return f"I encountered a technical glitch: {str(e)}.try rephrasing."
-
-def safe_tool_call(query):
-  try:
-    return agent_executor.invoke({"input": query})
-  except Exception as e:
-    return {
-      "output": f" Technical Glitch: {str(e)}",
-      "status": "error"
-      }
-
-user_query = "what is exchange rate of 100 USD to INR and top hotels in Bengaluru?"
-response = safe_tool_call(user_query)
-
-final_text = response.get("output", "no response generated.")
-
-print("-" * 30)
-print(f"QUERY: {user_query}")
-print(f"RESPONSE: {final_text}")
-print("-" * 30)
-
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-os.environ["GEMINI_API_KEY"] = userdata.get('GEMINI_API_KEY')
-
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
-
-agent = create_openai_functions_agent(llm, tools, prompt)
-
-agent_executor = AgentExecutor(
-    agent=agent,
-    tools=tools,
-    verbose=True)
-
-response = safe_tool_call("what is the current exchange rate for 100 USD to INR and what are the top hotels in Bengaluru?")
-print(response['output'])
-
-response = safe_tool_call("Find a budget hotel in Bengaluru and convert its price from 3,500 INR to USD.")
-print(response['output'])
-
+import streamlit as st
 import sqlite3
+import pandas as pd
+from datetime import datetime
 
+# 1. Database Setup (Requirement: SQLite for saving searches) 
 def init_db():
-  conn = sqlite3.connect('travel_concierge.db')
-  cursor = conn.cursor()
-  cursor.execute('''
-      CREATE TABLE IF NOT EXISTS  search_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_query TEXT,
-        itinerary TEXT
-      )
-  ''')
-  conn.commit()
-  conn.close()
-
-  def save_search(query, result):
-    conn = sqlite3.connect('travel_concierge.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO search_history (user_query, itinerary) VALUES (?, ?)", (query, result))
+    conn = sqlite3.connect('travel_app.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS searches 
+                 (id INTEGER PRIMARY KEY, timestamp TEXT, destination TEXT, query TEXT)''')
     conn.commit()
     conn.close()
 
-import os
-import sqlite3
-from dotenv import load_dotenv
-from langchain_community.agent_toolkits.load_tools import load_tools
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-from google.colab import userdata
-import os
-
-os.environ["GEMINI_API_KEY"] = userdata.get('GEMINI_API_KEY')
-TRAVEL_API_KEY = userdata.get('TRAVEL_API_KEY')
-
-def init_db():
-  conn = sqlite3.connect('travel_assistant.db')
-  cursor = conn.cursor()
-  cursor.execute('''
-       CREATE TABLE IF NOT EXISTS search_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        query TEXT,
-        destination TEXT,
-        results TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-       )
-   ''')
-  conn.commit()
-  conn.close()
-
-init_db()
-
-def save_search(query, destination, results):
-  conn = sqlite3.connect('travel_assistant.db')
-  cursor = conn.cursor()
-  cursor.execute("INSERT INTO search_history (query, destination, results) VALUES (?, ?, ?)", (query, destination, str(results)))
-  conn.commit()
-  conn.close()
-
-  from serpapi import GoogleSearch
-
-def search_flights(departure, arrival, date):
-  params = {
-      "engine": "google_flights",
-      "departure_id": departure,
-      "arrival_id": arrival,
-      "outbound_date": date,
-      "api_key": TRAVEL_API_KEY
-  }
-  search = GoogleSearch(params)
-  results = search.get_dict()
-
-  save_search(f"Flights from {departure}")
-
-  return results.get('best_flights', [])
-
-  from langchain.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-@tool
-def flight_search_tool(departure: str, arrival: str, date: str):
-  """
-  search for best flight options between two cities on a specific date.
-  Format: departure and arrival should be 3-letter airport codes (e.g.,'NYC','SFO')
-  Date format: YYYY-MM-DD.
-  """
-  return search_flights(departure, arrival, date)
-
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
-tools = [flight_search_tool]
-llm_with_tools = llm.bind(tools=tools)
-
-from langchain.tools import tool
-
-@tool
-def flight_search_tool(departure: str, arrival: str, date: str):
-  """
-  search for best flights and save the results to the database.
-  """
-  results = search.get_dict().get('best_flights', [])
-  query_text = f"Flights from {departure} to {arrival}"
-  save_search(query_text, arrival, results)
-  return results
-
-  import sqlite3
-import os
-from google.colab import userdata
-from langchain.tools import tool
-from serpapi import GoogleSearch # Ensure you run !pip install google-search-results
-from langchain_google_genai import ChatGoogleGenerativeAI # Ensure you run !pip install langchain-google-genai
-
-# 1. DATABASE SETUP
-def init_db():
-    conn = sqlite3.connect('travel_assistant.db')
-    cursor = conn.cursor() # Corrected: Added () to call the method
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS search_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            query TEXT,
-            destination TEXT,
-            results TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
+def save_search(destination, query):
+    conn = sqlite3.connect('travel_app.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO searches (timestamp, destination, query) VALUES (?, ?, ?)",
+              (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), destination, query))
     conn.commit()
     conn.close()
 
-def save_search(query, destination, results):
-    conn = sqlite3.connect('travel_assistant.db')
-    cursor = conn.cursor() # Corrected: Added () to call the method
-    cursor.execute(
-        "INSERT INTO search_history (query, destination, results) VALUES (?, ?, ?)",
-        (query, destination, str(results))
-    )
-    conn.commit()
-    conn.close()
+# 2. UI Configuration (Requirement: Clean interface with Results Cards) 
+st.set_page_config(page_title="AI Travel Concierge", layout="wide")
 
-# 2. FLIGHT SEARCH TOOL DEFINITION
-@tool
-def flight_search_tool(departure: str, arrival: str, date: str):
-    """
-    Search for flights between two cities and save results to the database.
-    departure/arrival: 3-letter airport codes (e.g., 'SFO', 'NYC').
-    date: YYYY-MM-DD format.
-    """
-    # Securely retrieve keys from Colab Secrets
-    api_key = userdata.get('TRAVEL_API_KEY')
+def display_travel_card(title, price, description, link_text="Book Now"):
+    """Creates a visual card for search results [cite: 84]"""
+    with st.container():
+        st.markdown(f"""
+        <div style="border: 1px solid #ddd; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+            <h4>{title}</h4>
+            <p><b>Estimated Cost:</b> {price}</p>
+            <p>{description}</p>
+            <button style="background-color: #ff4b4b; color: white; border: none; padding: 8px 15px; border-radius: 5px;">
+                {link_text}
+            </button>
+        </div>
+        """, unsafe_allow_index=True)
 
-    params = {
-        "engine": "google_flights",
-        "departure_id": "DEL",
-        "arrival_id": "LHR",
-        "date": "2026-06-15",
-        "gl": "in",
-        "hl": "en",
-        "currency": "INR",
-        "api_key": api_key
-    }
+# 3. Main Application Logic
+def main():
+    init_db()
+    
+    st.title("🌍 AI Travel Concierge")
+    st.markdown("Your personal assistant for flights, hotels, and itineraries.")
 
-    # Corrected: Initialize the 'search' object properly
-    search = GoogleSearch(params)
-    results_dict = search.get_dict()
-    flights = results_dict.get("any_flights", [])
-    other = results_dict.get("other_flights", [])
-    all_flights = flights + other
+    # Sidebar for Search History [cite: 72, 85]
+    with st.sidebar:
+        st.header("Recent Searches")
+        conn = sqlite3.connect('travel_app.db')
+        history = pd.read_sql_query("SELECT destination, timestamp FROM searches ORDER BY id DESC LIMIT 5", conn)
+        st.table(history)
+        
+        if st.button("Clear History"):
+            conn.execute("DELETE FROM searches")
+            conn.commit()
+            st.rerun()
+        conn.close()
 
-    if not all_flights:
-        print("no flights found.")
+    # Input Validation (Requirement: Basic input validation) 
+    with st.form("search_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            dest = st.text_input("Where to?")
+        with col2:
+            budget = st.selectbox("Budget Level", ["Economy", "Mid-range", "Luxury"])
+        
+        query = st.text_area("Tell us about your dream trip...")
+        submit = st.form_submit_button("Generate Itinerary")
 
-    # Save the successful search to SQLite
-    save_search(f"Flights from {departure} to {arrival}", arrival, flights)
+    if submit:
+        if not dest or not query:
+            st.error("Please provide both a destination and details about your trip!")
+        else:
+            save_search(dest, query)
+            
+            # Simulated Agent Response (Integrate your LangChain agent here) [cite: 100]
+            with st.spinner("Analyzing travel options..."):
+                st.subheader(f"Custom Itinerary for {dest}")
+                
+                # Layout for Results Display [cite: 84]
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    display_travel_card(f"Flight to {dest}", "$450", "Round-trip with 1 stopover.")
+                with col_b:
+                    display_travel_card("Central Boutique Hotel", "$120/night", "Top-rated stay in the heart of the city.")
 
-    return flights
+                st.info(f"### Suggested Daily Plan\n1. Morning: Visit local landmarks.\n2. Afternoon: {query[:50]}...\n3. Evening: Dinner at a traditional restaurant.")
 
-# 3. INITIALIZATION AND EXECUTION
-# Initialize the database file
-init_db()
+# 4. Chat Interface (Requirement: Chat interface) 
+st.divider()
+st.subheader("💬 Chat with your Agent")
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Set up the LLM (Gemini)
-os.environ["GEMINI_API_KEY"] = userdata.get('GEMINI_API_KEY')
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Example Test Run
-print("Testing the Flight Search Tool...")
-try:
-    test_results = flight_search_tool.run({
-        "departure": "DEL",
-        "arrival": "BOM",
-        "date": "2026-04-15"
-    })
-    print(f"Success! Found {len(test_results)} flight options.")
+if prompt := st.chat_input("Ask a follow-up question:"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-    # 4. ITINERARY GENERATION (Final Step for Week 5-6)
-    if test_results:
-        prompt = f"Create a simple 2-day travel itinerary for NYC based on these flights: {test_results[:2]}"
-        itinerary = llm.invoke(prompt)
-        print("\nGenerated Itinerary:\n", itinerary.content)
-except Exception as e:
-    print(f"Error encountered: {e}")
+    with st.chat_message("assistant"):
+        response = f"I've updated your {dest if 'dest' in locals() else 'trip'} plans based on: {prompt}"
+        st.markdown(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
-    import streamlit as st
-import sqlite3
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
-
-# --- UI CONFIG & DATABASE (Week 5 & 7 Requirements) ---
-st.set_page_config(page_title="AI Travel Concierge", page_icon="✈️")
-st.title("🌍 Essential AI Travel Assistant")
-
-def init_db():
-    conn = sqlite3.connect('travel_concierge.db')
-    conn.execute('CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY, query TEXT, result TEXT)')
-    conn.close()
-
-def save_and_get_history(query=None, result=None):
-    conn = sqlite3.connect('travel_concierge.db')
-    if query and result:
-        conn.execute("INSERT INTO history (query, result) VALUES (?, ?)", (query, result))
-        conn.commit()
-    data = conn.execute("SELECT query, result FROM history ORDER BY id DESC LIMIT 5").fetchall()
-    conn.close()
-    return data
-
-init_db()
-
-# --- SIDEBAR HISTORY (Week 8 Polish) ---
-st.sidebar.header("📜 Recent Searches")
-for h_query, h_result in save_and_get_history():
-    with st.sidebar.expander(f"📍 {h_query[:20]}..."):
-        st.write(h_result)
-
-# --- MANUAL AGENT LOGIC (Weeks 7-8 Implementation) ---
-# Use Streamlit Secrets for the API Key (Requirement for Week 8)
-from google.colab import userdata
-api_key = userdata.get('GEMINI_API_KEY')
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key)
-
-def search_travel_api(destination: str):
-    """Simulates a Travel API call for flights/hotels."""
-    return f"Found specialized budget hotels and direct flights for {destination}."
-
-# UI Interaction
-user_query = st.text_input("Describe your trip:", placeholder="e.g., 3 days in Paris for art lovers")
-
-if st.button("Generate Itinerary"):
-    with st.spinner("Agent is researching..."):
-        # Manual ReAct Cycle
-        messages = [HumanMessage(content=user_query)]
-        ai_response = llm.invoke(messages)
-
-        # Display and Save (Track A Core Functionality)
-        st.subheader("Your Travel Plan")
-        st.write(ai_response.content)
-        save_and_get_history(user_query, ai_response.content)
-        st.success("Itinerary saved to database!")
+if __name__ == "__main__":
+    main()
