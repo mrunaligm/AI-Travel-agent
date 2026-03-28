@@ -1,5 +1,5 @@
 import os, time
-
+from google.colab import userdata
 os.environ["GEMINI_API_KEY"]=userdata.get('GEMINI_API_KEY')
 
 from langchain_community.document_loaders import PyPDFLoader
