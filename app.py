@@ -156,11 +156,11 @@ def init_db():
   conn.close()
 
   def save_search(query, result):
-  conn = sqlite3.connect('travel_concierge.db')
-  cursor = conn.cursor()
-  cursor.execute("INSERT INTO search_history (user_query, itinerary) VALUES (?, ?)", (query, result))
-  conn.commit()
-  conn.close()
+    conn = sqlite3.connect('travel_concierge.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO search_history (user_query, itinerary) VALUES (?, ?)", (query, result))
+    conn.commit()
+    conn.close()
 
 import os
 import sqlite3
