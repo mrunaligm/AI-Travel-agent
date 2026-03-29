@@ -11,3 +11,6 @@ duckduckgo-search
 
 google-search-results
 pysqlite3-binary
+
+pandas
+python-dotenv
