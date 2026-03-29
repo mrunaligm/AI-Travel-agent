@@ -39,3 +39,7 @@ Thumbs.db
 # --- Development Tools ---
 # If you are using Jupyter/Colab locally
 .ipynb_checkpoints
+
+# --- streamlit and local testing ---
+.streamlit/config.toml
+.streamlit/secrets.toml
