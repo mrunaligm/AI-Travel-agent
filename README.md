@@ -79,3 +79,20 @@ Before running the project, you will need:
    ```bash
    git clone [https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git)
    cd YOUR_REPO_NAME
+
+# week 7-8
+
+## Features
+-**Conversational AI** : inetractive chat interface
+-**Smart search** : structured input for destination, budget and time
+-**Visual search** : recommended cards for flights and accomodation
+-**Persistant history** : integrated SQlite database to view past searches
+-**Clean UI** : production ready dashboard with sidebar navigation
+
+## Tech stack
+
+-**Framework** : langchain and llm
+-**Frontend** : Streamlit
+-**Database** : SQLite
+-**Language** : python 3.x
+-**deployment** : streamlit cloud
